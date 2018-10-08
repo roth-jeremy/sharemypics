@@ -12,7 +12,7 @@ var app = express();
 
 const mongoose = require('mongoose');
 mongoose.Promise = Promise;
-mongoose.connect('process.env.MONGODB_URI || mongodb://localhost/db_sharemypics');
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost/db_sharemypics');
 
 
 
