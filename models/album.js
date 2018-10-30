@@ -7,9 +7,12 @@ const albumSchema = new Schema({
   title: {
     type: String,
     required: true,
+    minlength: 2,
+    maxlength: 30,
   },
   contributors: [{
-    type: ObjectId,
+    type: Schema.Types.ObjectId,
+    ref: 'User',
     required: true,
   }],
   createdAt: {
@@ -17,11 +20,13 @@ const albumSchema = new Schema({
     default: Date.now,
     required: true
   },
+
   location: {
       type: String,
   },
   coverPic: {
-      type: String,
+      type: Schema.Types.ObjectId,
+      ref: 'Picture'
   }
 });
 
