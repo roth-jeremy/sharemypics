@@ -10,7 +10,8 @@ const userSchema = new Schema({
       // Manually validate uniqueness to send a "pretty" validation error
       // rather than a MongoDB duplicate key error
       validator: validateUserUsernameUniqueness,
-      message: 'Username {VALUE} already exists'
+      message: 'Username {VALUE} already exists',
+      isAsync: true
     }
   },
   name: {

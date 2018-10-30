@@ -6,13 +6,14 @@ var logger = require('morgan');
 
 var indexRouter = require('./routes/index');
 var usersRouter = require('./routes/users');
+var config = require('./config');
 
 var app = express();
 
 
 const mongoose = require('mongoose');
 mongoose.Promise = Promise;
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost/db_sharemypics');
+mongoose.connect(config.databaseUrl);
 
 
 

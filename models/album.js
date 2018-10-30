@@ -1,5 +1,7 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
+const ObjectId = mongoose.Types.ObjectId;
+
 // Define the schema for albums
 const albumSchema = new Schema({
   title: {
@@ -7,7 +9,7 @@ const albumSchema = new Schema({
     required: true,
   },
   contributors: [{
-    type: String,
+    type: ObjectId,
     required: true,
   }],
   createdAt: {
@@ -15,9 +17,6 @@ const albumSchema = new Schema({
     default: Date.now,
     required: true
   },
-  pictures: [{
-    type: String,
-  }],
   location: {
       type: String,
   },
