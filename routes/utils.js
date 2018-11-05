@@ -40,15 +40,17 @@ exports.authorize = function (req, res, next) {
       return res.status(401).send('Your token is invalid or has expired');
     } else {
       // Append user to request if logged in
-      req.user = User.findOne({ _id: payload.sub }).then(function (user) {
+      User.findOne({ _id: payload.sub }).exec(function (err, user) {
+        if (err) {
+          return res.status(401).send('User not found');
+        }
         if (!user) {
-          res.send(401, 'User not currently logged in')
+          res.send(401, 'User not currently logged in');
         }
         else {
-          console.log('Valid user:', user.name)
-          next()
+          req.user = user;
+          next();
         }
-
       })
     }
   });

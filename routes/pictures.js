@@ -3,7 +3,7 @@ const debug = require('debug')('sharemypics-project:pictures');
 const express = require('express');
 const mongoose = require('mongoose');
 const ObjectId = mongoose.Types.ObjectId;
-const Picture = require('../models/picture');
+const Album = require('../models/album');
 const utils = require('./utils');
 
 const router = express.Router();
@@ -19,18 +19,18 @@ const router = express.Router();
  * @apiSuccess {GeoJSON} location  The GeoJSON object with the infos of where the picture was taken
  */
 router.post('/', function (req, res, next) {
-    new Picture(req.body).save(function(err, savedPicture) {
-        if (err) {
-          return next(err);
-        }
-    
-        debug(`Created picture "${savedPicture.url}"`);
-    
-        res
-          .status(201)
-          .set('Location', `${config.baseUrl}/albums/${savedPicture._id}`)
-          .send(savedPicture);
-    });
+  new Picture(req.body).save(function (err, savedPicture) {
+    if (err) {
+      return next(err);
+    }
+
+    debug(`Created picture "${savedPicture.url}"`);
+
+    res
+      .status(201)
+      .set('Location', `${config.baseUrl}/albums/${savedPicture._id}`)
+      .send(savedPicture);
+  });
 });
 
 /**
@@ -44,14 +44,14 @@ router.post('/', function (req, res, next) {
  * @apiSuccess {GeoJSON} location  The GeoJSON object with the infos of where the picture was taken
  */
 router.get('/', function (req, res, next) {
-    Picture.find().sort('addedBy').exec(function (err, picture) {
-        if (err) {
-          return next(err);
-        }
-        let query = Picture.find();
-        
-        res.send(picture);
-    });
+  Picture.find().sort('addedBy').exec(function (err, picture) {
+    if (err) {
+      return next(err);
+    }
+    let query = Picture.find();
+
+    res.send(picture);
+  });
 });
 
 /**
@@ -67,7 +67,7 @@ router.get('/', function (req, res, next) {
  * @apiSuccess {GeoJSON} location  The GeoJSON object with the infos of where the picture was taken
  */
 router.get('/:id', loadPictureFromParamsMiddleware, function (req, res, next) {
-    res.send(req.picture);
+  res.send(req.picture);
 });
 
 /**
@@ -82,8 +82,8 @@ router.get('/:id', loadPictureFromParamsMiddleware, function (req, res, next) {
  * @apiSuccess {ObjectId} addedBy  The ID of the user that added the picture
  * @apiSuccess {GeoJSON} location  The GeoJSON object with the infos of where the picture was taken
  */
-router.patch('/:id', authenticate, utils.requireJson, loadPictureFromParamsMiddleware, function (req, res, next) {
-      // Update properties present in the request body
+router.patch('/:id', utils.requireJson, loadPictureFromParamsMiddleware, function (req, res, next) {
+  // Update properties present in the request body
   if (req.body.inAlbum !== undefined) {
     req.picture.inAlbum = req.body.inAlbum;
   }
@@ -120,7 +120,7 @@ router.patch('/:id', authenticate, utils.requireJson, loadPictureFromParamsMiddl
  * @apiSuccess {GeoJSON} location  The GeoJSON object with the infos of where the picture was taken
  */
 router.put('/:id', utils.requireJson, loadPictureFromParamsMiddleware, function (req, res, next) {
-      // Update properties present in the request body
+  // Update properties present in the request body
   req.picture.url = req.body.url;
   req.picture.addedBy = req.body.addedBy;
   req.picture.location = req.body.location;
@@ -148,35 +148,61 @@ router.put('/:id', utils.requireJson, loadPictureFromParamsMiddleware, function 
  * @apiSuccess {GeoJSON} location  The GeoJSON object with the infos of where the picture was taken
  */
 router.delete('/:id', loadPictureFromParamsMiddleware, function (req, res, next) {
-    req.picture.remove(function (err) {
-        if (err) {
-          return next(err);
-        }
-        debug(`Deleted picture "${req.picture.url}"`);
-        res.sendStatus(204);
-      });
+  req.picture.remove(function (err) {
+    if (err) {
+      return next(err);
+    }
+    debug(`Deleted picture "${req.picture.url}"`);
+    res.sendStatus(204);
+  });
 });
 
 //TODO comments MISSING
 function loadPictureFromParamsMiddleware(req, res, next) {
-    const pictureId = req.params.id;
-    if (!ObjectId.isValid(pictureId)) {
-      return albumNotFound(res, pictureId);
-    }
-  
-    picture.findById(req.params.id, function (err, picture) {
-      if (err) {
-        return next(err);
-      } else if (!picture) {
-        return albumNotFound(res, pictureId);
-      }
-  
-      req.picture = picture;
-      next();
-    });
+  const pictureId = req.params.id;
+  if (!ObjectId.isValid(pictureId)) {
+    return albumNotFound(res, pictureId);
   }
 
-  //TODO COMMENTS MISSING
-  function pictureNotFound(res, pictureId) {
-    return res.status(404).type('text').send(`No picture found with ID ${pictureId}`);
-  }
+  picture.findById(req.params.id, function (err, picture) {
+    if (err) {
+      return next(err);
+    } else if (!picture) {
+      return albumNotFound(res, pictureId);
+    }
+
+    req.picture = picture;
+    next();
+  });
+}
+
+function userIsAlbumContributorMiddleware(req, res, next) {
+  // Check if user is a contributor to the album
+  Album.findById(req.params.id, function (err, album) {
+    if (err) {
+      return next(err);
+    } else if (!album) {
+      // Throw album not found error
+      return albumNotFound(res, req.params.id);
+    } else if (!album.contributors.findById(req.user._id)) {
+      // Return permission denied status
+      res.status(403).send('Permission to access album is denied');
+    } else {
+      // Allow request to continue
+      next();
+    }
+  })
+}
+
+//TODO COMMENTS MISSING
+function pictureNotFound(res, pictureId) {
+  return res.status(404).type('text').send(`No picture found with ID ${pictureId}`);
+}
+
+//add the picture to an album, checking if the user is an album's contributor
+function addPictureToAlbum() {
+
+}
+
+// Export router
+module.exports = router;

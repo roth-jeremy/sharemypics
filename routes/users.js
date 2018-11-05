@@ -11,7 +11,17 @@ const secretKey = process.env.SECRET_KEY || 'aReallySecretKey';
 
 const router = express.Router();
 
-
+/**
+ * @api {post} /users/register Register a new user
+ * @apiName ResgisterUser
+ * @apiGroup User
+ *
+ * @apiSuccess {String} username User name of the user
+ * @apiSuccess {String} password  Password of the user
+ * @apiSuccess {String} name  Name of the user
+ * @apiSuccess {String} surname  Surname of the user
+ * @apiSuccess {ObjectId} profilePicture  Profile picture of the user
+ */
 router.post('/register', function (req, res, next) {
   new User(req.body).save(function (err, savedUser) {
     if (err) {
@@ -27,6 +37,17 @@ router.post('/register', function (req, res, next) {
   });
 });
 
+/**
+ * @api {post} /users/authenticate Authenticate an existing user
+ * @apiName PostUser
+ * @apiGroup User
+ *
+ * @apiSuccess {String} username User name of the user
+ * @apiSuccess {String} password  Password of the user
+ * @apiSuccess {String} name  Name of the user
+ * @apiSuccess {String} surname  Surname of the user
+ * @apiSuccess {ObjectId} profilePicture  Profile picture of the user
+ */
 router.post('/authenticate', function (req, res, next) {
   User.findOne({ username: req.body.username }).select("+password").exec(function (err, user) {
     if (err) {
@@ -46,8 +67,8 @@ router.post('/authenticate', function (req, res, next) {
 
       const exp = (new Date().getTime() + 7 * 24 * 3600 * 1000) / 1000;
 
-      const claims = { 
-        sub: user._id.toString(), 
+      const claims = {
+        sub: user._id.toString(),
         exp: exp
       };
 
@@ -218,7 +239,6 @@ function loadUserFromParamsMiddleware(req, res, next) {
   });
 }
 
-// TODO COMMENT MISSING
 function userNotFound(res, userId) {
   return res.status(404).type('text').send(`No user found with ID ${userId}`);
 }
