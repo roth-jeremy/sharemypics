@@ -20,7 +20,6 @@ const albumSchema = new Schema({
     default: Date.now,
     required: true
   },
-
   location: {
       type: String,
   },
