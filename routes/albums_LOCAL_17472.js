@@ -17,6 +17,8 @@ const router = express.Router();
  * @apiSuccess {String} title Title of the album
  * @apiSuccess {ObjectIdArray} contributors  An array of the album's contributors, defined by an user's ID
  */
+router.post('/', function (req, res, next) {
+  new Album(req.body).save(function (err, savedAlbum) {
     if (err) {
       return next(err);
     }
@@ -73,6 +75,7 @@ router.get('/:id', loadAlbumFromParamsMiddleware, function (req, res, next) {
  * @apiSuccess {String} title Title of the album
  * @apiSuccess {ObjectIdArray} contributors  An array of the album's contributors, defined by an user's ID
  */
+router.patch('/:id', authenticate, utils.requireJson, loadAlbumFromParamsMiddleware, function (req, res, next) {
   // Update properties present in the request body
   if (req.body.title !== undefined) {
     req.album.title = req.body.title;
@@ -87,7 +90,7 @@ router.get('/:id', loadAlbumFromParamsMiddleware, function (req, res, next) {
     }
 
     debug(`Updated album "${savedAlbum.title}"`);
-
+    
     res.send(savedAlbum);
   });
 });
@@ -162,7 +165,4 @@ function albumNotFound(res, albumId) {
   return res.status(404).type('text').send(`No album found with ID ${albumId}`);
 }
 
-<<<<<<< HEAD
-=======
->>>>>>> filtering
 module.exports = router;

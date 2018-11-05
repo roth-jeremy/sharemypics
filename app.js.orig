@@ -10,8 +10,17 @@ var usersRouter = require('./routes/users');
 var picturesRouter = require('./routes/pictures');
 var albumsRouter = require('./routes/albums');
 =======
+const createError = require('http-errors');
+const express = require('express');
+const path = require('path');
+const cookieParser = require('cookie-parser');
 const logger = require('morgan');
 
+const utils = require('./routes/utils')
+const indexRouter = require('./routes/index');
+const usersRouter = require('./routes/users');
+const albumsRouter = require('./routes/albums');
+const picturesRouter = require('./routes/pictures');
 >>>>>>> filtering
 
 var config = require('./config');
