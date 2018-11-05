@@ -1,35 +1,19 @@
-var express = require('express');
-var userRouter = express.Router();
-const User = require('../models/user');
-const debug = require('debug')('sharemypics-project:users');
+const bcrypt = require('bcrypt');
 const config = require('../config');
+const debug = require('debug')('sharemypics-project:users');
+const express = require('express');
+const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 const ObjectId = mongoose.Types.ObjectId;
+const User = require('../models/user');
 const utils = require('./utils');
-const jwt = require('jsonwebtoken');
 const secretKey = process.env.SECRET_KEY || 'aReallySecretKey';
 
+const router = express.Router();
 
-/* GET users */
-userRouter.get('/', function(req, res, next) {
-    User.find().sort('username').exec(function(err, users) {
-    if (err) {
-      return next(err);
-    }
-    res.send(users);
-  });
-});
 
-module.exports = userRouter;
-
-/* GET one user */
-userRouter.get('/:id', loadUserFromParamsMiddleware ,function(req, res, next) {
-  res.send(req.user);
-});
-
-/* POST users */
-userRouter.post('/', function(req, res, next) {
-  new User(req.body).save(function(err, savedUser) {
+router.post('/register', function (req, res, next) {
+  new User(req.body).save(function (err, savedUser) {
     if (err) {
       return next(err);
     }
@@ -43,12 +27,94 @@ userRouter.post('/', function(req, res, next) {
   });
 });
 
-/* PATCH users -> remplace un user au complet*/
-userRouter.patch('/:id', authenticate, utils.requireJson, loadUserFromParamsMiddleware, function(req, res, next) {
+router.post('/authenticate', function (req, res, next) {
+  User.findOne({ username: req.body.username }).select("+password").exec(function (err, user) {
+    if (err) {
+      return next(err);
+    } else if (!user) {
+      return res.sendStatus(401);
+    }
+
+    debug(`Attempting to authenticate user "${user.name}"`);
+
+    bcrypt.compare(req.body.password, user.password, function (err, valid) {
+      if (err) {
+        return next(err);
+      } else if (!valid) {
+        return res.sendStatus(401);
+      }
+
+      const exp = (new Date().getTime() + 7 * 24 * 3600 * 1000) / 1000;
+
+      const claims = { 
+        sub: user._id.toString(), 
+        exp: exp
+      };
+
+      jwt.sign(claims, secretKey, function (err, token) {
+        if (err) {
+          return next(err);
+        }
+        res.json({ user, token }); // Send the token to the client
+      })
+    })
+  })
+});
+
+/**
+ * @api {get} /users Get all users
+ * @apiName GetAllUsers
+ * @apiGroup User
+ *
+ * @apiSuccess {String} username User name of the user
+ * @apiSuccess {String} password  Password of the user
+ * @apiSuccess {String} name  Name of the user
+ * @apiSuccess {String} surname  Surname of the user
+ * @apiSuccess {ObjectId} profilePicture  Profile picture of the user
+ */
+router.get('/', function (req, res, next) {
+  User.find().sort('username').exec(function (err, users) {
+    if (err) {
+      return next(err);
+    }
+    let query = User.find();
+
+    res.send(users);
+  });
+});
+
+/**
+ * @api {get} /users/:id Get a user
+ * @apiName GetUser
+ * @apiGroup User
+ *
+ * @apiParam {Number} id Unique identifier of the user
+ *
+ * @apiSuccess {String} username User name of the user
+ * @apiSuccess {String} password  Password of the user
+ * @apiSuccess {String} name  Name of the user
+ * @apiSuccess {String} surname  Surname of the user
+ * @apiSuccess {ObjectId} profilePicture  Profile picture of the user
+ */
+router.get('/:id', loadUserFromParamsMiddleware, function (req, res, next) {
+  res.send(req.user);
+});
+
+/**
+* @api {patch} /users/:id Partially update a user, all parameters optionnal
+* @apiName PatchUser
+* @apiGroup User
+*
+* @apiParam {Number} id Unique identifier of the user
+*
+* @apiSuccess {String} username User name of the user
+* @apiSuccess {String} password  Password of the user
+* @apiSuccess {String} name  Name of the user
+* @apiSuccess {String} surname  Surname of the user
+* @apiSuccess {ObjectId} profilePicture  Profile picture of the user
+*/
+router.patch('/:id', utils.authorize, utils.requireJson, loadUserFromParamsMiddleware, function (req, res, next) {
   // Update properties present in the request body
-  if (req.user._id !== req.params.id){
-    return res.status(403).send('Please mind your own things.')
-  }
   if (req.body.username !== undefined) {
     req.user.username = req.body.username;
   }
@@ -65,55 +131,82 @@ userRouter.patch('/:id', authenticate, utils.requireJson, loadUserFromParamsMidd
     req.user.profilepic = req.body.profilepic;
   }
 
-  req.user.save(function(err, savedUser) {
+  req.user.save(function (err, savedUser) {
     if (err) {
       return next(err);
     }
 
-    debug(`Updated person "${savedUser.name}"`);
+    debug(`Updated user "${savedUser.name}"`);
     res.send(savedUser);
   });
 });
 
-/* PUT users -> remplace un user au complet*/
-userRouter.put('/:id', utils.requireJson, loadUserFromParamsMiddleware, function(req, res, next) {
+/**
+ * @api {put} /users/:id Completely update a user
+ * @apiName PutUser
+ * @apiGroup User
+ *
+ * @apiParam {Number} id Unique identifier of the user
+ *
+ * @apiSuccess {String} username User name of the user
+ * @apiSuccess {String} password  Password of the user
+ * @apiSuccess {String} name  Name of the user
+ * @apiSuccess {String} surname  Surname of the user
+ * @apiSuccess {ObjectId} profilePicture  Profile picture of the user
+ */
+router.put('/:id', utils.authorize, loadUserFromParamsMiddleware, function (req, res, next) {
   // Update properties present in the request body
   req.user.username = req.body.username;
   req.user.surname = req.body.surname;
   req.user.name = req.body.name;
   req.user.password = req.body.password;
   req.user.profilepic = req.body.profilepic;
-  
-  req.user.save(function(err, savedUser) {
+
+  req.user.save(function (err, savedUser) {
     if (err) {
       return next(err);
     }
 
-    debug(`Updated person "${savedUser.name}"`);
+    debug(`Updated user "${savedUser.name}"`);
+
     res.send(savedUser);
   });
 });
 
-/* DELETE user*/
-userRouter.delete('/:id', loadUserFromParamsMiddleware ,function(req, res, next) {
-  req.user.remove(function(err) {
-      if (err) {
-        return next(err);
-      }
-      debug(`Deleted user "${req.user.name}"`);
-      res.sendStatus(204);
-    });
+/**
+ * @api {delete} /users/:id Delete a user
+ * @apiName DeleteUser
+ * @apiGroup User
+ *
+ * @apiParam {Number} id Unique identifier of the user
+ *
+ * @apiSuccess {String} username User name of the user
+ * @apiSuccess {String} password  Password of the user
+ * @apiSuccess {String} name  Name of the user
+ * @apiSuccess {String} surname  Surname of the user
+ * @apiSuccess {ObjectId} profilePicture  Profile picture of the user
+ */
+router.delete('/:id', loadUserFromParamsMiddleware, function (req, res, next) {
+  req.user.remove(function (err) {
+    if (err) {
+      return next(err);
+    }
+
+    debug(`Deleted user "${req.user.name}"`);
+
+    res.sendStatus(204);
+  });
 
 });
 
+// TODO COMMENT MISSING
 function loadUserFromParamsMiddleware(req, res, next) {
-
   const userId = req.params.id;
   if (!ObjectId.isValid(userId)) {
     return userNotFound(res, userId);
   }
 
-  User.findById(req.params.id, function(err, user) {
+  User.findById(req.params.id, function (err, user) {
     if (err) {
       return next(err);
     } else if (!user) {
@@ -124,28 +217,10 @@ function loadUserFromParamsMiddleware(req, res, next) {
     next();
   });
 }
+
+// TODO COMMENT MISSING
 function userNotFound(res, userId) {
   return res.status(404).type('text').send(`No user found with ID ${userId}`);
 }
-function authenticate(req, res, next) {
-  // Ensure the header is present.
-  const authorization = req.get('Authorization');
-  if (!authorization) {
-      return res.status(401).send('Authorization header is missing');
-  }
-  // Check that the header has the correct format.
-  const match = authorization.match(/^Bearer (.+)$/);
-  if (!match) {
-      return res.status(401).send('Authorization header is not a bearer token');
-  }
-  // Extract and verify the JWT.
-  const token = match[1];
-  jwt.verify(token, secretKey, function(err, payload) {
-      if (err) {
-          return res.status(401).send('Your token is invalid or has expired');
-      } else {
-          req.user._id = payload.sub;
-          next(); // Pass the ID of the authenticated user to the next middleware.
-      }
-  });
-}
+
+module.exports = router;

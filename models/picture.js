@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
+
 // Define the schema for pictures
 const pictureSchema = new Schema({
   inAlbum: {
