@@ -5,6 +5,8 @@ const mongoose = require('mongoose');
 const ObjectId = mongoose.Types.ObjectId;
 const Album = require('../models/album');
 const utils = require('./utils');
+const User = require('../models/user');
+const UserRouter = require('./users');
 
 const router = express.Router();
 
@@ -17,6 +19,11 @@ const router = express.Router();
  * @apiSuccess {String} title Title of the album
  * @apiSuccess {ObjectIdArray} contributors  An array of the album's contributors, defined by an user's ID
  */
+router.post('/', utils.authorize, function (req, res, next) {
+  // Such a clever hack to add default user to request body
+  // Create new album and add current user as its first contributor
+  let params = { title: req.body.title, contributors: [req.user._id,] };
+  new Album(params).save(function (err, savedAlbum) {
     if (err) {
       return next(err);
     }
@@ -29,6 +36,42 @@ const router = express.Router();
       .send(savedAlbum);
   });
 })
+
+/**
+ * @api {post} /:id/addContributor Post an album
+ * @apiName PostAlbum
+ * @apiGroup Album
+ *
+ * @apiSuccess {String} title Title of the album
+ * @apiSuccess {ObjectIdArray} contributors  An array of the album's contributors, defined by an user's ID
+ */
+router.post('/contribute/:id', utils.authorize, loadAlbumFromParamsMiddleware, function (req, res, next) {
+  // Check if the new contributor id exists
+  User.findById(req.body.userId, function (err, user) {
+    if (err) {
+      return next(err);
+    } else if (!user) {
+      res.status(404).type('text').send(`No user found with ID ${req.params.userId}`);
+    }
+
+    // Find album and add contributor to id
+    req.album.contributors.push(user._id);
+
+    // Save album to database
+    req.album.save(function (err, savedAlbum) {
+      if (err) {
+        return next(err);
+      }
+  
+      debug(`Updated album "${savedAlbum.title}"`);
+  
+      res
+        .status(200)
+        .set('Location', `${config.baseUrl}/albums/${savedAlbum._id}`)
+        .send(savedAlbum);
+    });
+  });
+});
 
 /**
  * @api {get} /albums Get all albums
@@ -73,6 +116,7 @@ router.get('/:id', loadAlbumFromParamsMiddleware, function (req, res, next) {
  * @apiSuccess {String} title Title of the album
  * @apiSuccess {ObjectIdArray} contributors  An array of the album's contributors, defined by an user's ID
  */
+router.patch('/:id', utils.requireJson, loadAlbumFromParamsMiddleware, function (req, res, next) {
   // Update properties present in the request body
   if (req.body.title !== undefined) {
     req.album.title = req.body.title;
@@ -162,7 +206,4 @@ function albumNotFound(res, albumId) {
   return res.status(404).type('text').send(`No album found with ID ${albumId}`);
 }
 
-<<<<<<< HEAD
-=======
->>>>>>> filtering
 module.exports = router;
